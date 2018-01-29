@@ -43,13 +43,26 @@ function love.keypressed(k)
     elseif k == 'right' then
         field:move(1)
     elseif k == 'down' then
-        field:drop(false)
+        field:drop()
     elseif k == 'up' then
-        field:drop(true)
+        field:harddrop()
     end
 
     --player.key(true, k)
 end
+
+function love.joystickpressed(joystick,button)
+    print(joystick, button)
+    if button == 5 then
+        field:harddrop()
+    elseif button == 6 then
+        field:move(1)
+    elseif button == 7 then
+        field:drop()
+    elseif button == 8 then
+        field:move(-1)
+    end
+ end
 
 function love.keyreleased(k)
     --player.key(false, k)
