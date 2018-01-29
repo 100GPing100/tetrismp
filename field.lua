@@ -9,7 +9,9 @@ local function Field(margin)
         size = 0,
         nextstep = STEP_INTERVAL,
         falling = nil,
-        falling_id = 0
+        falling_id = 0,
+        ghost = nil,
+        hold = nil
     }
 
     -- create grid
@@ -34,6 +36,29 @@ local function Field(margin)
     self.offset.y = self.offset.y + margin.top
     self.offset.x = self.offset.x + margin.left
 
+    function self.setcolor(self, i, forghost)
+        local alpha = forghost and 64 or 255
+        
+        if i == 1 then -- I
+            love.graphics.setColor(255, 220, 0, alpha)
+        elseif i == 2 then -- O
+            love.graphics.setColor(57, 204, 204, alpha)
+        elseif i == 3 then -- T
+            love.graphics.setColor(177, 13, 201, alpha)
+        elseif i == 4 then -- S
+            love.graphics.setColor(46, 204, 64, alpha)
+        elseif i == 5 then -- Z
+            love.graphics.setColor(255, 65, 54, alpha)
+        elseif i == 6 then -- J
+            love.graphics.setColor(255, 133, 27, alpha)
+        elseif i == 7 then -- L
+            love.graphics.setColor(0, 116, 217, alpha)
+        else
+            -- empty field block
+            love.graphics.setColor(255, 255, 255, alpha)
+        end
+    end
+
     function self.draw(self)
         love.graphics.push()
         love.graphics.translate(self.offset.x, self.offset.y)
@@ -42,22 +67,36 @@ local function Field(margin)
             for x = 0, FIELD_X - 1 do
                 local i = self.blocks[y * FIELD_X + x]
 
-                if i < 0 then
-                    love.graphics.setColor(255, 0, 0, 255)
-                elseif i == 0 then
-                    love.graphics.setColor(255, 255, 255, 255)
+                self:setcolor(i, false)
+                if i ~= 0 then
+                    love.graphics.rectangle('fill', x * self.size, y * self.size, self.size, self.size)
+
+                    self:setcolor(0, false)
                 else
-                    love.graphics.setColor(0, 255, 0, 255)
+                    love.graphics.setColor(128, 128, 128, 255)
                 end
 
-                love.graphics.rectangle(i == 0 and 'line' or 'fill', x * self.size, y * self.size, self.size, self.size)
+                love.graphics.rectangle('line', x * self.size, y * self.size, self.size, self.size)
             end
         end
 
         if self.falling then
-            love.graphics.setColor(255, 255, 255, 255)
             for c, pos in ipairs(self.falling) do
+                self:setcolor(self.falling_id, false)
                 love.graphics.rectangle('fill', pos.x * self.size, pos.y * self.size, self.size, self.size)
+
+                self:setcolor(0, false)
+                love.graphics.rectangle('line', pos.x * self.size, pos.y * self.size, self.size, self.size)
+            end
+        end
+
+        if self.ghost then
+            for c, pos in ipairs(self.ghost) do
+                self:setcolor(self.falling_id, true)
+                love.graphics.rectangle('fill', pos.x * self.size, pos.y * self.size, self.size, self.size)
+
+                self:setcolor(0, true)
+                love.graphics.rectangle('line', pos.x * self.size, pos.y * self.size, self.size, self.size)
             end
         end
 
@@ -65,23 +104,64 @@ local function Field(margin)
     end
 
     function self.createpiece(self, i)
-        self.falling_id = i
-
         if i == 1 then
-            return {
-                { x = 3, y = 0 }
+            return { -- I
+                { x = 3, y = 1 },
+                { x = 4, y = 1 },
+                { x = 5, y = 1 },
+                { x = 6, y = 1 }
             }
+        elseif i == 2 then
+            return { -- O
+                { x = 4, y = 0 },
+                { x = 5, y = 0 },
+                { x = 4, y = 1 },
+                { x = 5, y = 1 }
+            }
+        elseif i == 3 then
+            return { -- T
+                { x = 4, y = 0 },
+                { x = 3, y = 1 },
+                { x = 4, y = 1 },
+                { x = 5, y = 1 }
+            }
+        elseif i == 4 then
+            return { -- S
+                { x = 4, y = 0 },
+                { x = 5, y = 0 },
+                { x = 3, y = 1 },
+                { x = 4, y = 1 }
+            }
+        elseif i == 5 then
+            return { -- Z
+                { x = 3, y = 0 },
+                { x = 4, y = 0 },
+                { x = 4, y = 1 },
+                { x = 5, y = 1 }
+            }
+        elseif i == 6 then
+            return { -- J
+                { x = 3, y = 0 },
+                { x = 3, y = 1 },
+                { x = 4, y = 1 },
+                { x = 5, y = 1 }
+            }
+        elseif i == 7 then
+            return { -- L
+                { x = 5, y = 0 },
+                { x = 3, y = 1 },
+                { x = 4, y = 1 },
+                { x = 5, y = 1 }
+            }
+        else
+            error("Unknown piece id")
         end
     end
 
     function self.spawn(self, i)
         self.falling_id = i
-        self.falling = {
-            {x = 5, y = 0},
-            {x = 6, y = 0},
-            {x = 5, y = 1},
-            {x = 6, y = 1}
-        }
+        self.falling = self:createpiece(i)
+        self.ghost = self:getghost()
     end
 
     function self.update(self, dt)
@@ -91,7 +171,7 @@ local function Field(margin)
             self.nextstep = STEP_INTERVAL
 
             if self.falling == nil then
-                self:spawn(1)
+                self:spawn(math.random(1, 7))
             else
                 local stop_fall = false
 
@@ -158,22 +238,24 @@ local function Field(margin)
             for c, pos in ipairs(self.falling) do
                 pos.x = pos.x + x
             end
+
+            self.ghost = self:getghost()
         end
     end
 
-    function self.drop(self, alltheway)
+    function self.getghost(self)
         if not self.falling then
-            return
+            return nil
         end
 
-        if alltheway then
-            while self.falling do
-                self:drop(false)
-            end
-        else
-            local stop_fall = false
+        local falling = {}
+        for c, pos in ipairs(self.falling) do
+            falling[c] = { x = pos.x, y = pos.y }
+        end
 
-            for c, pos in ipairs(self.falling) do
+        local stop_fall = false
+        while not stop_fall do
+            for c, pos in ipairs(falling) do
                 -- check bottom
                 if pos.y == FIELD_Y - 1 then
                     stop_fall = true
@@ -187,14 +269,66 @@ local function Field(margin)
                 -- it's empty, might move, check next block
             end
 
-            if stop_fall then
-                self:stay()
-            else
-                for c, pos in ipairs(self.falling) do
+            if not stop_fall then
+                for c, pos in ipairs(falling) do
                     pos.y = pos.y + 1
                 end
             end
         end
+
+        return falling
+    end
+
+    function self.harddrop(self)
+        if not self.falling then
+            return
+        end
+
+        self.falling = self:getghost()
+        self:stay()
+    end
+
+    function self.drop(self)
+        if not self.falling then
+            return
+        end
+
+        -- sanity check
+        if not self.ghost then
+            self.ghost = self:getghost()
+        end
+
+        if self.falling[1].y == self.ghost[1].y then
+            self:stay()
+        else
+            for c, pos in ipairs(self.falling) do
+                pos.y = pos.y + 1
+            end
+        end
+
+        --[[local stop_fall = false
+
+        for c, pos in ipairs(self.falling) do
+            -- check bottom
+            if pos.y == FIELD_Y - 1 then
+                stop_fall = true
+                break
+            elseif self.blocks[(pos.y + 1) * FIELD_X + pos.x] ~= 0 then
+                -- check bottom block: not empty, stay
+                stop_fall = true
+                break
+            end
+
+            -- it's empty, might move, check next block
+        end
+
+        if stop_fall then
+            self:stay()
+        else
+            for c, pos in ipairs(self.falling) do
+                pos.y = pos.y + 1
+            end
+        end--]]
     end
 
     return self
